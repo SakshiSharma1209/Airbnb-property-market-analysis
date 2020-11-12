@@ -1,0 +1,614 @@
+---
+title: "Data mining and Predictive analytics"
+output:
+  word_document: default
+  pdf_document:
+    latex_engine: null
+  html_notebook: default
+always_allow_html: yes
+---
+
+```{r setup, include=FALSE}
+
+# This chunk shows/hides the code in your final report. When echo = TRUE, the code
+# is shown in the report. When echo = FALSE, the code is hidden from the final report.
+# We would like to see your code, so please leave the setting as is during the course.
+# This chunk will not show up in your reports, so you can safely ignore its existence.
+
+knitr::opts_chunk$set(echo = TRUE)
+
+```
+
+
+
+```{r}
+#setwd("C:/") #Don't forget to set your working directory before you start!
+library("tidyverse")
+library("tidymodels")
+library("plotly")
+library("skimr")
+library("dplyr")
+library("lubridate")
+library("caret")
+library("car")
+library("e1071")
+library("xgboost")
+#library("gg")
+```
+
+```{r}
+airdffTrain <- read_csv('airbnbTrain.csv')
+airdffTest <- read_csv('airbnbTest.csv')
+```
+
+```{r}
+#str(airdffTrain)
+```
+
+
+
+```{r}
+#Clearning
+airdffTrain$cleaning_fee <- (gsub("\\$", "", airdffTrain$cleaning_fee))
+airdffTrain$cleaning_fee <- as.numeric(gsub("\\,", "", airdffTrain$cleaning_fee))
+airdffTrain$extra_people <- (gsub("\\$", "", airdffTrain$extra_people))
+airdffTrain$extra_people <- as.numeric(gsub("\\,", "", airdffTrain$extra_people))
+airdffTrain$host_response_rate <- as.numeric(gsub("\\%", "", airdffTrain$host_response_rate))
+airdffTrain$price <- (gsub("\\$", "", airdffTrain$price))
+airdffTrain$price <- as.double(gsub("\\,", "", airdffTrain$price))
+airdffTrain$security_deposit <- (gsub("\\$", "", airdffTrain$security_deposit))
+airdffTrain$security_deposit <- as.numeric(gsub("\\,", "", airdffTrain$security_deposit))
+airdffTrain$weekly_price <- (gsub("\\$", "", airdffTrain$weekly_price))
+airdffTrain$weekly_price <- as.numeric(gsub("\\,", "", airdffTrain$weekly_price))
+
+str(airdffTrain)
+```
+
+```{r}
+#Cleaning - 2
+airdffTest$cleaning_fee <- (gsub("\\$", "", airdffTest$cleaning_fee))
+airdffTest$cleaning_fee <- as.numeric(gsub("\\,", "", airdffTest$cleaning_fee))
+airdffTest$extra_people <- (gsub("\\$", "", airdffTest$extra_people))
+airdffTest$extra_people <- as.numeric(gsub("\\,", "", airdffTest$extra_people))
+airdffTest$host_response_rate <- as.numeric(gsub("\\%", "", airdffTest$host_response_rate))
+airdffTest$price <- (gsub("\\$", "", airdffTest$price))
+airdffTest$price <- as.double(gsub("\\,", "", airdffTest$price))
+airdffTest$security_deposit <- (gsub("\\$", "", airdffTest$security_deposit))
+airdffTest$security_deposit <- as.numeric(gsub("\\,", "", airdffTest$security_deposit))
+airdffTest$weekly_price <- (gsub("\\$", "", airdffTest$weekly_price))
+airdffTest$weekly_price <- as.numeric(gsub("\\,", "", airdffTest$weekly_price))
+```
+
+```{r}
+#cleaning 3
+airdffTrain$price <- ifelse(is.na(airdffTrain$price), mean(airdffTrain$price, na.rm=TRUE), airdffTrain$price)
+airdffTest$price <- ifelse(is.na(airdffTest$price), mean(airdffTest$price, na.rm=TRUE), airdffTest$price)
+#airdffTrain$cleaning_price <- ifelse(is.na(airdffTrain$cleaning_price), mean(airdffTrain$cleaning_price, na.rm=TRUE), airdffTrain$cleaning_price)
+#airdffTest$cleaning_price <- ifelse(is.na(airdffTest$cleaning_price), mean(airdffTest$cleaning_price, na.rm=TRUE), airdffTest$cleaning_price)
+airdffTrain$host_response_rate <- ifelse(is.na(airdffTrain$host_response_rate), mean(airdffTrain$host_response_rate, na.rm=TRUE), airdffTrain$host_response_rate)
+airdffTest$host_response_rate <- ifelse(is.na(airdffTest$host_response_rate), mean(airdffTest$host_response_rate, na.rm=TRUE), airdffTest$host_response_rate)
+airdffTrain$availability_365 <- ifelse(is.na(airdffTrain$availability_365), mean(airdffTrain$availibility_365, na.rm=TRUE), airdffTrain$availability_365)
+airdffTest$availability_365 <- ifelse(is.na(airdffTest$availability_365), mean(airdffTest$availability_365, na.rm=TRUE), airdffTest$availability_365)
+airdffTest$security_deposit <- ifelse(is.na(airdffTest$security_deposit), mean(airdffTest$security_deposit, na.rm=TRUE), airdffTest$security_deposit)
+airdffTrain$security_deposit <- ifelse(is.na(airdffTrain$security_deposit), mean(airdffTrain$security_deposit, na.rm=TRUE), airdffTrain$security_deposit)
+airdffTest$bedrooms <- ifelse(is.na(airdffTest$bedrooms), mean(airdffTest$bedrooms, na.rm=TRUE), airdffTest$bedrooms)
+airdffTrain$bedrooms <- ifelse(is.na(airdffTrain$bedrooms), mean(airdffTrain$bedrooms, na.rm=TRUE), airdffTrain$bedrooms)
+airdffTrain$bathrooms <- ifelse(is.na(airdffTrain$bathrooms), mean(airdffTrain$bathrooms, na.rm=TRUE), airdffTrain$bathrooms)
+airdffTest$bathrooms <- ifelse(is.na(airdffTest$bathrooms), mean(airdffTest$bathrooms, na.rm=TRUE), airdffTest$bathrooms)
+airdffTest$review_scores_rating <- ifelse(is.na(airdffTest$review_scores_rating), mean(airdffTest$review_scores_rating, na.rm=TRUE), airdffTest$review_scores_rating)
+airdffTrain$review_scores_rating <- ifelse(is.na(airdffTrain$review_scores_rating), mean(airdffTrain$review_scores_rating, na.rm=TRUE), airdffTrain$review_scores_rating)
+airdffTrain$beds <- ifelse(is.na(airdffTrain$beds), mean(airdffTrain$beds, na.rm=TRUE), airdffTrain$beds)
+airdffTest$beds <- ifelse(is.na(airdffTest$beds), mean(airdffTest$beds, na.rm=TRUE), airdffTest$beds)
+```
+
+#XG Boost for overall US Data 
+
+```{r}
+trainx <- select(airdffTrain,-c('high_booking_rate'))
+```
+
+```{r}
+dttrain = data.matrix(trainx)
+dttest = data.matrix(airdffTest)
+```
+
+```{r}
+dtrain <- xgb.DMatrix(data = dttrain, label = airdffTrain$high_booking_rate)
+```
+
+```{r}
+bstair<- xgboost(data=dtrain, max.depth = 14, eta =0.0390,min_child_weight = 2,nthread =8,nrounds = 1200, max_delta_step = 2,colsample_bytree = 0.44, objective = "binary:logistic", verbose = FALSE)
+```
+
+
+```{r}
+pred <- predict(bstair, dttest)
+x <- data.frame(pred)
+```
+
+```{r}
+airdffTrain$id
+```
+
+
+```{r}
+#Excel extraction
+#my_solution <- data.frame(id = airdffTests$id, high_booking_rate = pred)
+```
+
+```{r}
+set.seed(123)
+train <- airdffTrain %>%sample_frac(0.7)
+test <- dplyr::setdiff(airdffTrain,train)
+```
+
+```{r}
+trainx <- select(train,-c('high_booking_rate'))
+testx <- select(test,-c('high_booking_rate'))
+```
+
+```{r}
+dttrain = data.matrix(trainx)
+dttest = data.matrix(testx)
+```
+
+```{r}
+dtrain <- xgb.DMatrix(data = dttrain, label = train$high_booking_rate)
+dtest <- xgb.DMatrix(data = dttest, label = test$high_booking_rate)
+```
+
+```{r}
+bstair<- xgboost(data=dtrain, max.depth = 14, eta =0.0390,min_child_weight = 2,nthread =8,nrounds = 1200, max_delta_step = 2,colsample_bytree = 0.44, objective = "binary:logistic",verbose = FALSE)
+```
+
+```{r}
+pred <- predict(bstair, dttest)
+pred
+```
+
+```{r}
+library (ROCR);
+
+y <- test$high_booking_rate
+predictions <- pred
+
+predx <- prediction(predictions, y);
+
+# Recall-Precision curve             
+RP.perf <- performance(predx, "prec", "rec");
+
+plot (RP.perf);
+
+# ROC curve
+ROC.perf <- performance(predx, "tpr", "fpr");
+plot (ROC.perf);
+
+# ROC area under the curve
+auc.tmp <- performance(predx,"auc");
+auc <- as.numeric(auc.tmp@y.values)
+
+auc
+```
+
+
+```{r}
+class_performance <- function(confusion_matrix){
+  
+  TP <- confusion_matrix[2,2]
+  TN <- confusion_matrix[1,1]
+  FP <- confusion_matrix[1,2]
+  FN <- confusion_matrix[2,1]
+  acc <- (TP+TN)/(TP+TN+FP+FN)
+  tpr <- TP/(TP+FN)
+  tnr <- TN/(TN+FP)
+  return(c(acc,tpr,tnr))
+}
+#Confusion matrix function
+confusion_matrix <- function(pred, actuals, cutoff){
+  
+  classifications <- ifelse(pred>cutoff,1,0)
+  
+  
+  confusion_matrix <- table(actuals,classifications)
+}
+
+cm1=confusion_matrix(pred,test$high_booking_rate,0.6)
+cm1
+metrics1=class_performance(cm1)
+metrics1
+```
+
+
+#XG Boost for Hawaii and analysis
+
+```{r}
+airdffTrainHawaii <- airdffTrain%>% filter(state == "HI") #18 rows missing
+airdffTestHawaii <- airdffTest%>% filter(state == "HI")
+```
+
+```{r}
+airdffTrainHawaii[airdffTrainHawaii$id==1044384, "market"] <- "Maui"
+airdffTrainHawaii[airdffTrainHawaii$id==1197255, "market"] <- "The Big Island"
+airdffTrainHawaii[airdffTrainHawaii$id==1074239, "market"] <- "Oahu"
+airdffTrainHawaii[airdffTrainHawaii$id==1069364, "market"] <- "The Big Island"
+airdffTrainHawaii[airdffTrainHawaii$id==1046942, "market"] <- "Maui"
+airdffTrainHawaii[airdffTrainHawaii$id==1138892, "market"] <- "Kauai"
+airdffTrainHawaii[airdffTrainHawaii$id==1061324, "market"] <- "Oahu"
+airdffTrainHawaii[airdffTrainHawaii$id==1174621, "market"] <- "The Big Island"
+airdffTrainHawaii[airdffTrainHawaii$id==1086618, "market"] <- "The Big Island"
+airdffTrainHawaii[airdffTrainHawaii$id==1128414, "market"] <- "The Big Island"
+airdffTrainHawaii[airdffTrainHawaii$id==1143164, "market"] <- "Maui"
+airdffTrainHawaii[airdffTrainHawaii$market=="Big Island", "market"] <- "The Big Island"
+airdffTrainHawaii[airdffTrainHawaii$market=="Other (International)", "market"] <- "Other (Domestic)"
+```
+
+```{r}
+#median number of bedrooms
+airdffTrainHawaii%>%
+  group_by(high_booking_rate)%>%
+  summarise(median(bedrooms))
+```
+
+```{r}
+#Mean number of bedrooms in high booking rate locations
+airdffTrainHawaii%>%
+  group_by(high_booking_rate)%>%
+  summarise(mean(bedrooms))
+```
+
+```{r}
+#Bathrooms
+airdffTrainHawaii%>%
+   group_by(high_booking_rate)%>%
+  summarise(mean(bathrooms))
+```
+
+```{r}
+airdffTrainHawaii%>%
+  group_by(high_booking_rate)%>%
+  summarise(median(bathrooms))
+```
+
+```{r}
+#number of beds
+airdffTrainHawaii%>%
+  group_by(high_booking_rate)%>%
+  summarise(median(beds))
+```
+
+```{r}
+airdffTrainHawaii%>%
+  group_by(high_booking_rate)%>%
+  summarise(mean(beds))
+  
+```
+
+```{r}
+#Box plot bathroom
+plotbathroom <- airdffTrainHawaii %>% 
+  ggplot(mapping = aes(x = high_booking_rate, y = bathrooms, fill = factor(high_booking_rate))) + geom_boxplot()
+
+ggplotly(plotbathroom)
+```
+```{r}
+plotbeds <- airdffTrainHawaii %>% 
+  ggplot(mapping = aes(x = high_booking_rate, y = beds, fill = factor(high_booking_rate))) + geom_boxplot()
+
+ggplotly(plotbeds)
+```
+
+```{r}
+#Bedroom
+plotbedrooms <- airdffTrainHawaii %>% 
+  ggplot(mapping = aes(x = high_booking_rate, y = bedrooms, fill = factor(high_booking_rate))) + geom_boxplot()
+
+ggplotly(plotbedrooms)
+```
+
+
+```{r}
+plotprice <- airdffTrainHawaii %>% 
+  ggplot(mapping = aes(x = high_booking_rate, y = price, fill = factor(high_booking_rate))) + geom_boxplot()
+
+ggplotly(plotprice)
+```
+
+
+```{r}
+plotminnights <- airdffTrainHawaii %>% 
+  ggplot(mapping = aes(x = high_booking_rate, y = minimum_nights, fill = factor(high_booking_rate))) + geom_boxplot()
+
+ggplotly(plotminnights)
+```
+
+```{r}
+plotaccomodates <- airdffTrainHawaii %>% 
+  ggplot(mapping = aes(x = high_booking_rate, y = accommodates, fill = factor(high_booking_rate))) + geom_boxplot()
+
+ggplotly(plotaccomodates)
+```
+```{r}
+plotsecurityDeposit <- airdffTrainHawaii %>% 
+  ggplot(mapping = aes(x = high_booking_rate, y = security_deposit, fill = factor(high_booking_rate))) + geom_boxplot()
+
+ggplotly(plotsecurityDeposit)
+```
+
+
+```{r}
+HawaiiTrain_LM_EX <-
+	lm( formula = high_booking_rate ~ price+availability_365+cleaning_fee+host_listings_count+minimum_nights+security_deposit+maximum_nights+extra_people+accommodates+bathrooms+beds+weekly_price+is_location_exact+instant_bookable+bedrooms+market+property_type+cancellation_policy, data = airdffTrainHawaii )
+
+summary(HawaiiTrain_LM_EX)
+
+```
+
+
+
+```{r}
+HawaiiTrain_LogM_EX <-
+	glm(formula = high_booking_rate ~ price+availability_365+cleaning_fee+host_listings_count+minimum_nights+security_deposit+maximum_nights+extra_people+accommodates+bathrooms+beds+weekly_price+is_location_exact+instant_bookable+bedrooms+market+property_type+cancellation_policy, data = airdffTrainHawaii)
+
+summary(HawaiiTrain_LogM_EX)
+```
+
+#Predicting model
+```{r}
+set.seed(555)
+trainhbr <- airdffTrainHawaii %>%sample_frac(0.65)
+testhbr <- dplyr::setdiff(airdffTrainHawaii,trainhbr)
+
+```
+
+```{r}
+trainhbr <-trainhbr %>%dplyr::select(-c('id','access','amenities','description','host_about','host_location','host_neighbourhood','host_verifications','house_rules','interaction','is_business_travel_ready','latitude','longitude','neighborhood_overview','notes','require_guest_phone_verification','require_guest_profile_picture','review_scores_accuracy','review_scores_value','review_scores_rating','space','transit','zipcode','{randomControl}','review_scores_checkin','review_scores_location', 'review_scores_communication','review_scores_cleanliness','availability_90','availability_60','availability_30'))
+
+testhbr <- testhbr %>%dplyr::select(-c('id','access','amenities','description','host_about','host_location','host_neighbourhood','host_verifications','house_rules','interaction','is_business_travel_ready','latitude','longitude','neighborhood_overview','notes','require_guest_phone_verification','require_guest_profile_picture','review_scores_accuracy','review_scores_value','review_scores_rating','space','transit','zipcode','{randomControl}','review_scores_checkin', 'review_scores_location', 'review_scores_communication', 'review_scores_cleanliness','availability_90','availability_60','availability_30'))
+
+```
+#Business travel ready holds all false values, review parameter are highly correlated
+#
+
+```{r}
+trainx <- select(trainhbr,-c('high_booking_rate'))
+testx <- select(testhbr,-c('high_booking_rate'))
+```
+
+
+```{r}
+dttrain = data.matrix(trainx)
+dttest = data.matrix(testx)
+```
+
+```{r}
+dtrain <- xgb.DMatrix(data = dttrain, label = trainhbr$high_booking_rate)
+#dtest <- xgb.DMatrix(data = dttest, label = airdffTestHawaii$high_booking_rate)
+```
+
+```{r}
+bstair<- xgboost(data=dtrain, max.depth = 14, eta =0.0390,min_child_weight = 2,nthread =8,nrounds = 1200, max_delta_step = 2,colsample_bytree = 0.44, objective = "binary:logistic",verbose = FALSE)
+```
+
+```{r}
+var_imp <- xgb.importance(model = bstair)
+xgb.plot.importance(importance_matrix = var_imp)
+```
+```{r}
+var_imp
+```
+
+
+```{r}
+pred <- predict(bstair, dttest)
+#pred
+```
+
+
+```{r}
+#Confusion Matrix
+
+class_performance <- function(confusion_matrix){
+  
+  TP <- confusion_matrix[2,2]
+  TN <- confusion_matrix[1,1]
+  FP <- confusion_matrix[1,2]
+  FN <- confusion_matrix[2,1]
+  acc <- (TP+TN)/(TP+TN+FP+FN)
+  tpr <- TP/(TP+FN)
+  tnr <- TN/(TN+FP)
+  return(c(acc,tpr,tnr))
+}
+#Confusion matrix function
+confusion_matrix <- function(pred, actuals, cutoff){
+  
+  classifications <- ifelse(pred>cutoff,1,0)
+  
+  
+  confusion_matrix <- table(actuals,classifications)
+}
+
+cm1=confusion_matrix(pred,testhbr$high_booking_rate,0.6)
+cm1
+metrics1=class_performance(cm1)
+metrics1
+```
+
+
+```{r}
+library (ROCR);
+
+y <- testhbr$high_booking_rate
+predictions <- pred
+
+predx <- prediction(predictions, y);
+
+# Recall-Precision curve             
+RP.perf <- performance(predx, "prec", "rec");
+
+plot (RP.perf);
+
+# ROC curve
+ROC.perf <- performance(predx, "tpr", "fpr");
+plot (ROC.perf);
+
+# ROC area under the curve
+auc.tmp <- performance(predx,"auc");
+auc <- as.numeric(auc.tmp@y.values)
+
+auc
+```
+
+
+```{r}
+#Average Price vs Market
+
+Pricevsmarketplot <- airdffTrainHawaii%>% filter(high_booking_rate ==1) %>%group_by(market)%>%summarize(marketp= mean(price))%>%ggplot+geom_point(mapping = aes(x=market, y = marketp))+theme(axis.text.x = element_text(angle = 90))
+
+ggplotly(Pricevsmarketplot)
+```
+
+
+
+```{r}
+#average price of high_prob vs lower prob in different markets
+pricevsmarketvsbookingrate <- airdffTrainHawaii %>% 
+  group_by(high_booking_rate,market) %>% 
+  summarize(maxFare = max(price), averageFare = mean(price)) %>% 
+  ungroup()%>% ggplot+geom_point(mapping=aes(x=market,y = averageFare,color = factor(high_booking_rate)))+ theme(axis.text.x = element_text(angle = 90))
+
+ggplotly(pricevsmarketvsbookingrate)
+```
+
+
+
+
+
+```{r}
+#summary(hbrLDA)
+```
+
+```{r}
+#Number of bedrooms vs market ( color by high booking rate)
+bedroomsvsmarketvsbookingrate <- airdffTrainHawaii %>% 
+  group_by(high_booking_rate,market) %>% 
+  summarize(maxbedroom = max(bedrooms), averagebedroom = mean(bedrooms)) %>% 
+  ungroup()%>% ggplot+geom_point(mapping=aes(x=market,y = averagebedroom,color = factor(high_booking_rate)))+ theme(axis.text.x = element_text(angle = 90))
+
+ggplotly(bedroomsvsmarketvsbookingrate)
+```
+
+```{r}
+bathroomsvsmarketvsbookingrate <- airdffTrainHawaii %>% 
+  group_by(high_booking_rate,market) %>% 
+  summarize(maxbathroom = max(bathrooms), averagebathroom = mean(bathrooms)) %>% 
+  ungroup()%>% ggplot+geom_point(mapping=aes(x=market,y = averagebathroom,color = factor(high_booking_rate)))+ theme(axis.text.x = element_text(angle = 90))
+
+ggplotly(bathroomsvsmarketvsbookingrate)
+```
+
+```{r}
+#propertyvsmarketvsbookingrate <- airdffTrainHawaii %>% 
+  #group_by(property_type,high_booking_rate,market) %>% 
+  #ungroup()%>% ggplot+geom_point(mapping=aes(x=market,y = property_type,color = factor(high_booking_rate)))+ theme(axis.text.x = element_text(angle = 90))
+
+#ggplotly(propertyvsmarketvsbookingrate)
+```
+
+```{r}
+market_occurances <- airdffTrainHawaii %>%
+  #filter(high_booking_rate == 1) %>% 
+  group_by(market) %>%
+  tally()
+```
+
+
+
+```{r}
+market_high <- airdffTrainHawaii %>% filter(high_booking_rate==1)%>%
+ group_by(market) %>%
+ tally() %>% 
+  mutate(pct = 100*n/sum(n))
+#proportion_high
+#proportion_high <- market_high$n/market_occurances$n
+market_high
+```
+
+```{r}
+```
+
+#Optional
+
+```{r}
+# marketvsbookingrate <- market_high %>% 
+#   group_by(market) %>% 
+#   ungroup()%>% ggplot+geom_point(mapping=aes(x=market,y =pct ,color = factor(high_booking_rate)))+ theme(axis.text.x = element_text(angle = 90))
+# ggplotly(marketvsbookingrate)
+```
+
+```{r}
+occupantsvsmarketvsbookingrate <- airdffTrainHawaii %>% 
+  group_by(high_booking_rate,market) %>% 
+  summarize(maxaccommodates
+ = max(accommodates), averageaccommodates = mean(accommodates)) %>% 
+  ungroup()%>% ggplot+geom_point(mapping=aes(x=market,y = averageaccommodates,color = factor(high_booking_rate)))+ theme(axis.text.x = element_text(angle = 90))
+
+ggplotly(occupantsvsmarketvsbookingrate)
+```
+
+```{r}
+#Avgreview_scores <- airdffTrainHawaii %>% 
+  #group_by(market) %>% 
+  #mean(as.numeric(review_scores))
+#Avgreview_scores
+```
+
+
+```{r}
+reviewscoresvsmarketvsbookingrate <- airdffTrainHawaii %>% 
+  group_by(high_booking_rate,market) %>% 
+  summarize(maxaccommodates
+ = max(accommodates), averageaccommodates = mean(accommodates)) %>% 
+  ungroup()%>% ggplot+geom_point(mapping=aes(x=market,y = averageaccommodates,color = factor(high_booking_rate)))+ theme(axis.text.x = element_text(angle = 90))
+
+ggplotly(occupantsvsmarketvsbookingrate)
+```
+
+```{r}
+propertyvsmarketvsbookingrate <- airdffTrainHawaii %>%
+  group_by(property_type,high_booking_rate,market) %>% ungroup()%>%
+  ggplot+geom_point(mapping=aes(x=property_type,y = market,color = factor(high_booking_rate)))+ theme(axis.text.x = element_text(angle = 90))
+
+ggplotly(propertyvsmarketvsbookingrate)
+```
+
+```{r}
+MH <- market_high%>% ggplot() + geom_point(mapping=aes(x = market,y = pct, color = "Percentage of high booking rate"))+ theme(axis.text.x = element_text(angle = 90)) +scale_color_manual(values = c("Red"))
+ggplotly(MH)
+# 
+# MHdff <- market_high["market","pct"]
+# 
+# barplot(MHdff)
+```
+
+```{r}
+propertyvshighbooking <- airdffTrainHawaii %>%
+  filter(high_booking_rate == 1) %>% 
+  group_by(market,property_type) %>%
+ tally() %>% 
+  mutate(proportion = n/sum(n))
+ #%>%summarise(max())
+propertyvshighbooking %>% arrange(desc(proportion))
+```
+```{r}
+MHvspct <- market_high %>% ggplot(aes(x = reorder(market,-pct),y =pct)) + geom_bar(stat="identity", fill="Blue")+ theme(axis.text.x = element_text(angle = 90))
+
+ggplotly(MHvspct)
+```
+# Greatest chance of success is if you build in Oahu Island that contains the most popular tourist destinations such as Honolulu and Kailua with one bed to three beds and One bathroom. Largely individual families? Greatest odds of success is if the price is between $99 and 185 and the larger number of property's rent is $131. where as anything above $185 has greater odds of faiure. Individual/independent houses allow for the highest odds of success.Hotels are bad and the odds of success drastically improve. Coming to cancellation policy moderation is key. You will get lose out if you are super strict. Private rooms are the best. One is ideal.Shared room is a bad idea.
+---
+References:
+
+https://www.hawaiitourismauthority.org/news/news-releases/2020/hawai-i-visitor-statistics-released-for-2019/
+
+
+---
